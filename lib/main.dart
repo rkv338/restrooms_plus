@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
@@ -15,61 +17,51 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   late GoogleMapController mapController;
   bool _isLoading = true;
-
+  StreamSubscription<Position>? _locationStream;
   late LatLng _center;
+  Position? currPos;
   @override
   void initState() {
     super.initState();
     getLocation();
   }
+  @override
+  void dispose() {
+    _locationStream?.cancel();
+    super.dispose();
+  }
 
   void _onMapCreated(GoogleMapController controller) {
     mapController = controller;
   }
-  Future<Position> _determinePosition() async {
-    bool serviceEnabled;
-    LocationPermission permission;
 
-    // Test if location services are enabled.
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      // Location services are not enabled don't continue
-      // accessing the position and request users of the
-      // App to enable the location services.
-      return Future.error('Location services are disabled.');
-    }
-
-    permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        // Permissions are denied, next time you could try
-        // requesting permissions again (this is also where
-        // Android's shouldShowRequestPermissionRationale
-        // returned true. According to Android guidelines
-        // your App should show an explanatory UI now.
-        return Future.error('Location permissions are denied');
-      }
-    }
-
-    if (permission == LocationPermission.deniedForever) {
-      // Permissions are denied forever, handle appropriately.
-      return Future.error(
-          'Location permissions are permanently denied, we cannot request permissions.');
-    }
-
-    // When we reach here, permissions are granted and we can
-    // continue accessing the position of the device.
-    return await Geolocator.getCurrentPosition();
-  }
   getLocation() async {
     LocationPermission permission;
     permission = await Geolocator.requestPermission();
-
-    Position position =
-    // await _determinePosition();
-    await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high);
+    // Position position = await Future.any([
+    //   Geolocator.getCurrentPosition(
+    //       desiredAccuracy: LocationAccuracy.high),
+    //   Future.delayed(Duration(seconds: 5), () => Position(latitude: 0, longitude: 0)),
+    // ]);
+    // if (position == null) {
+     Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high);
+    // }
+    // _locationStream = Geolocator.getPositionStream().listen((p) {
+    //   setState(() {
+    //     _isLoading = false;
+    //     currPos = p;
+    //     _center = LatLng(currPos!.latitude, currPos!.longitude);
+    //     mapController.animateCamera(
+    //       CameraUpdate.newCameraPosition(
+    //         CameraPosition(
+    //           target: _center,
+    //           zoom: 16,
+    //         )
+    //       )
+    //     );
+    //   });
+    // });
     double lat = position.latitude;
     double long = position.longitude;
 
@@ -84,13 +76,14 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
         colorSchemeSeed: Colors.green[700],
       ),
       home: Scaffold(
         appBar: AppBar(
-          title: const Text('Maps Sample App'),
+          title: const Text('Restroom Reviewer'),
           elevation: 2,
         ),
         body: _isLoading ?
@@ -100,6 +93,13 @@ class _MyAppState extends State<MyApp> {
             target: _center,
             zoom: 16.0,
           ),
+          markers: {
+            Marker(
+              markerId: const MarkerId('Current Location'),
+              position: _center,
+            )
+          }
+
         ),
       ),
     );
